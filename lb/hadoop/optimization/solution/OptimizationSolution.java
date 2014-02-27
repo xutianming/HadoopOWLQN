@@ -1,8 +1,7 @@
 package lb.hadoop.optimization.solution;
 
-import lb.hadoop.model.DifferentiableFunction;
+import java.util.ArrayList;
 
 public interface OptimizationSolution {
-	public void minimize(DifferentiableFunction func, double[] init, double[] res, 
-			double tor, double memoryLimit);
+	public void minimize(ArrayList<Double> init, ArrayList<Double> res);
 }

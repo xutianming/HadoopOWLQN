@@ -1,65 +1,74 @@
 package lb.hadoop.optimization.solution;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 
 import lb.hadoop.model.DifferentiableFunction;
-import lb.hadoop.model.L1RegularizedLR;
+import lb.hadoop.optimization.state.OWLQNIterationState;
 import lb.hadoop.optimization.termcrit.RelativeMeanImprovementCriterion;
+import lb.hadoop.optimization.termcrit.TerminationCriterion;
 
-public class OWLQN implements OptimizationSolution{
+public class OWLQN implements OptimizationSolution {
 	
-	private boolean quiet=false;
+	@SuppressWarnings("unused")
+	private boolean quiet = false;
+	@SuppressWarnings("unused")
 	private boolean responsibleForTermCrit;
 	
-	private ArrayList<Double> x, grad, newX, newGrad, dir;
-	private ArrayList<Double> steepestDescDir; // references newGrad to save memory, since we don't ever use both at the same time
+	private ArrayList<Double> x, grad, newX, newGrad;
+	private ArrayList<Double> steepestDescDir, dir; 
 	private LinkedList<ArrayList<Double>> sList, yList;
 	private LinkedList<Double> roList;
 	private ArrayList<Double> alphas;
-	
-	private double value;
 	private int iter, m;
+	private TerminationCriterion termCrit;
+	private DifferentiableFunction func;
+	private OWLQNIterationState state;
+	private double value;
 	private int dim;
-	L1RegularizedLR func;
-	double l1weight;
+	private double tor;
 
-
-	public void UpdateDir() {
-		
-	}
-	
-	public RelativeMeanImprovementCriterion termCrit;
-	
-	public OWLQN(boolean quiet) {
+	public OWLQN(boolean quiet, DifferentiableFunction func, int dimension, int memoryLimit, double tor) {
 		this.quiet=quiet;
-		termCrit = new RelativeMeanImprovementCriterion();
-		responsibleForTermCrit = true;
+		this.termCrit = new RelativeMeanImprovementCriterion();
+		this.state = new OWLQNIterationState();
+		this.responsibleForTermCrit = true;
+		this.func = func;
+		this.dim = dimension;
+		this.m = memoryLimit;
+		this.x = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
+		this.grad = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
+		this.newX = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
+		this.newGrad = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
+		this.steepestDescDir = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
+		this.dir = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
+		this.tor = tor;
 	}
-
-	public OWLQN(RelativeMeanImprovementCriterion termCrit, boolean quiet) {
+	/** temporary unused
+	public OWLQN(TerminationCriterion termCrit, DifferentiableFunction func, boolean quiet) {
 		this.termCrit = termCrit;
 		this.quiet = quiet;
-		responsibleForTermCrit = false;
+		this.responsibleForTermCrit = false;
+		this.func = func;
+	}
+	*/
+	
+	private void updateDir() {
+		makeSteepestDescDir();
+		mapDirByInverseHessian();
+		fixDirSigns();
 	}
 	
-	public void setQuiet(boolean quiet) {
-		this.quiet = quiet;
-	}
-	
-	public void MakeSteepestDescDir() {
-		if (this.l1weight == 0) {
-			scaleInto(dir, grad, -1);
-		} else {
-			ArrayList<Double> grads = func.getGrad();
-			for (int i=0; i<dim; i++) {
-				dir.set(i,0-grads.get(i));
-			}
+	private void makeSteepestDescDir() {
+		ArrayList<Double> grads = func.getGrad();
+		for (int i=0; i<dim; i++) {
+			dir.set(i,0-grads.get(i));
 		}
-		steepestDescDir = dir;
+		steepestDescDir = new ArrayList<Double>(dir);
 	}
 	
-	public void MapDirByInverseHessian() {
+	private void mapDirByInverseHessian() {
 		int count = sList.size();
 
 		if (count != 0) {
@@ -80,28 +89,24 @@ public class OWLQN implements OptimizationSolution{
 		}
 	}
 	
-	public void FixDirSigns() {
-		if (l1weight > 0) {
-			for (int i = 0; i<dim; i++) {
-				if (dir.get(i) * steepestDescDir.get(i) <= 0) {
-					dir.set(i,0.0);
-				}
+	private void fixDirSigns() {
+		for (int i = 0; i<dim; i++) {
+			if (dir.get(i) * steepestDescDir.get(i) <= 0) {
+				dir.set(i,0.0);
 			}
 		}
 	}
 	
-	public void GetNextPoint(double alpha) {
+	private void getNextPoint(double alpha) {
 		addMultInto(newX, x, dir, alpha);
-		if (l1weight > 0) {
-			for (int i=0; i<dim; i++) {
-				if (x.get(i) * newX.get(i) < 0.0) {
+		for (int i=0; i<dim; i++) {
+			if (x.get(i) * newX.get(i) < 0.0) {
 					newX.set(i,0.0);
-				}
 			}
 		}
 	}
 	
-	public void BackTrackingLineSearch() {
+	public void backTrackingLineSearch() {
 		double origDirDeriv = func.getDirDeriv(dir);
 		// if a non-descent direction is chosen, the line search will break anyway, so throw here
 		// The most likely reason for this is a bug in your function's gradient computation
@@ -123,49 +128,68 @@ public class OWLQN implements OptimizationSolution{
 		double oldValue = value;
 
 		while (true) {
-			GetNextPoint(alpha);
+			getNextPoint(alpha);
 			value = func.eval(newX, newGrad);
-
-			if (value <= oldValue + c1 * origDirDeriv * alpha) break;
+			if (value <= oldValue + c1 * origDirDeriv * alpha) {
+				state.setIterStateValue(value);
+				break;
+			}
 
 			alpha *= backoff;
 		}
 
 	}
 	
-	public void Shift() {
-		ArrayList<Double> nextS,nextY;
+	public void shift() {
+		ArrayList<Double> nextS = null,nextY = null;
 
-		int listSize = (int)sList.size();
+        int listSize = (int)sList.size();
 
-		if (listSize < m) {
-			nextS = new ArrayList<Double>(dim);
-			nextY = new ArrayList<Double>(dim);
-		}
+        if (listSize < m-1) {
+                nextS = new ArrayList<Double>(dim);
+                nextY = new ArrayList<Double>(dim);
+        }
 
-		if (nextS == null) {
-			nextS = sList.getFirst();
-			sList.;
-			nextY = yList.front();
-			yList.pop_front();
-			roList.pop_front();
-		}
+        if (nextS == null) {
+                nextS = sList.getFirst();
+                sList.removeFirst();
+                nextY = yList.getFirst();
+                yList.removeFirst();
+                roList.removeFirst();
+        }
 
-		addMultInto(*nextS, newX, x, -1);
-		addMultInto(*nextY, newGrad, grad, -1);
-		double ro = dotProduct(*nextS, *nextY);
+        addMultInto(nextS, newX, x, -1);
+        addMultInto(nextY, newGrad, grad, -1);
+        double ro = dotProduct(nextS, nextY);
 
-		sList.push_back(nextS);
-		yList.push_back(nextY);
-		roList.push_back(ro);
+        sList.addLast(nextS);
+        yList.addLast(nextY);
+        roList.addLast(ro);
 
-		x.swap(newX);
-		grad.swap(newGrad);
+        x = new ArrayList<Double>(newX);
+        grad = new ArrayList<Double>(newGrad);
 
-		iter++;
+        state.increaseIter();
 	}
 	
-	public static double dotProduct(ArrayList<Double> a, ArrayList<Double> b) {
+	@Override
+	public void minimize(ArrayList<Double> init, ArrayList<Double> res) {
+		value = func.eval(init, grad);  // Loss
+		state.setIterStateValue(value); // Use loss as iteration state value
+        termCrit.getTermCritValue(state);
+        while (true) {
+        	updateDir();
+            backTrackingLineSearch();
+            double termCritVal = termCrit.getTermCritValue(state);
+            if(termCritVal < tor)
+            	break;
+            shift();
+        }
+        res = newX;
+		
+	}
+
+	private double dotProduct(ArrayList<Double> a, ArrayList<Double> b) {
 		double result = 0;
 		for (int i=0; i<a.size(); i++) {
 			result += a.get(i) * b.get(i);
@@ -173,36 +197,42 @@ public class OWLQN implements OptimizationSolution{
 		return result;
 	}
 
-	public static void addMult(ArrayList<Double>a, ArrayList<Double> b, double c) {
+	private void addMult(ArrayList<Double>a, ArrayList<Double> b, double c) {
 		for (int i=0; i<a.size(); i++) {
 			a.set(i, a.get(i)+b.get(i)*c);
 		}
 	}
 
-	public static void add(ArrayList<Double> a, ArrayList<Doule> b) {
+	@SuppressWarnings("unused")
+	private void add(ArrayList<Double> a, ArrayList<Double> b) {
 		for (int i=0; i<a.size(); i++) {
 			a.set(i,a.get(i)+b.get(i));
 		}
 	}
 
-	public static void addMultInto(ArrayList<Double> a, ArrayList<Double>  b, ArrayList<Double> c, double d) {
+	private void addMultInto(ArrayList<Double> a, ArrayList<Double>  b, ArrayList<Double> c, double d) {
 		for (int i=0; i<a.size(); i++) {
 			a.set(i,b.get(i)+c.get(i)*d);
 		}
 	}
 
-	public static void scale(ArrayList<Double> a, double b) {
+	private void scale(ArrayList<Double> a, double b) {
 		for (int i=0; i<a.size(); i++) {
 			a.set(i,a.get(i)*b);
 		}
 	}
 
-	public static void scaleInto(ArrayList<Double> a, ArrayList<Double> b, double c) {
+	@SuppressWarnings("unused")
+	private void scaleInto(ArrayList<Double> a, ArrayList<Double> b, double c) {
 		for (int i=0; i<a.size(); i++) {
 			a.set(i,b.get(i)*c);
 		}
 	}
 
+	public void setQuiet(boolean quiet) {
+		this.quiet = quiet;
+	}
+	
 	public ArrayList<Double> GetX() {
 		return this.newX;
 	}
@@ -232,14 +262,6 @@ public class OWLQN implements OptimizationSolution{
 	}
 	
 	public int GetDim() {
-		return this.dim;
+		return this.x.size();
 	}
-	
-	@Override
-	public void minimize(DifferentiableFunction func, double[] init,
-			double[] res, double tor, double memoryLimit) {
-		// TODO Auto-generated method stub
-		
-	}
-
 }

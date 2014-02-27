@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import lb.hadoop.model.logistic.LogisticRegression;
 
 public class L1RegularizedLR implements DifferentiableFunction {
-	
+	// TODO L1REG must be positive
 	private double l1reg;
 	private double l2reg;
 	private ArrayList<Double> gradient;

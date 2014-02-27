@@ -2,11 +2,11 @@ package lb.hadoop.optimization.termcrit;
 
 import java.util.LinkedList;
 
-import lb.hadoop.optimization.solution.OWLQN;
-import lb.hadoop.optimization.solution.OptimizationSolution;
+import lb.hadoop.optimization.state.IterationState;
 
 public class RelativeMeanImprovementCriterion implements TerminationCriterion{
 	
+	@SuppressWarnings("unused")
 	private int numItersToAvg;
 	private LinkedList<Double> prevVals;
 	
@@ -19,21 +19,20 @@ public class RelativeMeanImprovementCriterion implements TerminationCriterion{
 	}
 
 	@Override
-	public double getTermCritValue(OptimizationSolution state) {
+	public double getTermCritValue(IterationState state) {
 		
-		// TODO Auto-generated method stub
 		double retVal = Double.POSITIVE_INFINITY;
 		if(prevVals.size()>5) {
 			double prevVal = prevVals.getFirst();
 			if(prevVals.size()==10) {
 				prevVals.removeFirst();
 			}
-			double averageImprovement = (prevVal-state.GetValue())/prevVals.size();
-			double relAvgImpr = averageImprovement / Math.abs(state.GetValue());
+			double averageImprovement = (prevVal-state.getIterStateValue())/prevVals.size();
+			double relAvgImpr = averageImprovement / Math.abs(state.getIterStateValue());
 			retVal = relAvgImpr;
-			
 		}
-		return 0;
+		prevVals.addLast(state.getIterStateValue());
+		return retVal;
 	}
 
 }

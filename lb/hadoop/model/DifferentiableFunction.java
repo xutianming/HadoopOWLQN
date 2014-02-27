@@ -1,3 +1,5 @@
+//lele
+
 package lb.hadoop.model;
 
 public interface DifferentiableFunction {

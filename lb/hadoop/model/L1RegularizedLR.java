@@ -23,6 +23,7 @@ public class L1RegularizedLR implements DifferentiableFunction {
 			loss += Math.abs(input.get(i)) * l1reg;
 		}
 		this.gradient = new ArrayList<Double>(grad);
+		updateGrad(input);
 		return loss;
 	}
 
@@ -42,6 +43,24 @@ public class L1RegularizedLR implements DifferentiableFunction {
 			res += dir.get(i) * this.gradient.get(i);
 		}
 		return res;
+	}
+	
+	private void updateGrad( ArrayList<Double> input ) {
+		for(int i=0; i<input.size(); i++) {
+			if(input.get(i) < 0) {
+				this.gradient.set(i, this.gradient.get(i)-l1reg);
+			} else if(input.get(i) > 0) {
+				this.gradient.set(i, this.gradient.get(i)+l1reg);
+			} else {
+				if(this.gradient.get(i) + l1reg < 0) {
+					this.gradient.set(i, this.gradient.get(i)+l1reg);
+				} else if(this.gradient.get(i) -l1reg >0) {
+					this.gradient.set(i, this.gradient.get(i)-l1reg);
+				} else {
+					this.gradient.set(i, 0.0);
+				}
+			}
+		}
 	}
 
 }

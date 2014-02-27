@@ -1,41 +1,29 @@
-package lb.hadoop.model.logistic;
+package lb.hadoop.model;
 
 import java.util.ArrayList;
 
-import lb.hadoop.model.DifferentiableFunction;
+import lb.hadoop.model.logistic.LogisticRegression;
 
-public class LogisticRegression implements DifferentiableFunction {
+public class L1RegularizedLR implements DifferentiableFunction {
+	
+	private double l1reg;
 	private double l2reg;
 	private ArrayList<Double> gradient;
 	
-	public LogisticRegression(double l2reg) {
+	public L1RegularizedLR(double l1reg, double l2reg) {
+		this.l1reg = l1reg;
 		this.l2reg = l2reg;
 	}
 	
 	@Override
 	public double eval(ArrayList<Double> input, ArrayList<Double> grad) {
-		
-		double loss = 1.0;
-		//TODO: use int here ?
+		LogisticRegression lr = new LogisticRegression(l2reg);
+		double loss = lr.eval(input, grad);
 		for(int i=0; i<input.size(); i++) {
-			loss += 0.5 * input.get(i) * input.get(i) * l2reg;
-			grad.set(i, l2reg * input.get(i));
-		}
-		
-		double instanceLoss = 0.0;
-		try {
-			instanceLoss = updateLossAndGrad(input, grad);
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.exit(1);
+			loss += Math.abs(input.get(i)) * l1reg;
 		}
 		this.gradient = new ArrayList<Double>(grad);
-		loss += instanceLoss;
 		return loss;
-	}
-	
-	private double updateLossAndGrad(ArrayList<Double> input, ArrayList<Double> grad) throws Exception {
-		return (new LRUpdateLoss().run(input, grad));
 	}
 
 	@Override

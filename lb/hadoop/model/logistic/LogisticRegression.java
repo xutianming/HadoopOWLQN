@@ -19,12 +19,18 @@ public class LogisticRegression implements DifferentiableFunction {
 			grad[i] = l2reg * input[i];
 		}
 		
-		double instanceLoss = updateLossAndGrad(input, grad);
+		double instanceLoss = 0.0;
+		try {
+			instanceLoss = updateLossAndGrad(input, grad);
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.exit(1);
+		}
 		loss += instanceLoss;
 		return loss;
 	}
 	
-	private double updateLossAndGrad(double[] input, double[] grad) {
+	private double updateLossAndGrad(double[] input, double[] grad) throws Exception {
 		return (new LRUpdateLoss().run(input, grad));
 	}
 

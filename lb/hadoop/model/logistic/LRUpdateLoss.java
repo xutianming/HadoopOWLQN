@@ -45,12 +45,12 @@ public class LRUpdateLoss extends Configured implements Tool {
 					if(line.length() > 0)
 						weights.add(Double.parseDouble(line));
 				}
+				fs.deleteOnExit(new Path(filenameWeight));
 				br.close();
 				fs.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			
 		}
 		
 		public void map(LongWritable key, Text value, Context context) 
@@ -98,7 +98,6 @@ public class LRUpdateLoss extends Configured implements Tool {
 				outKey.set(index);
 				outVal.set(label * -1 * insProb);
 				context.write(outKey, outVal);
-				//grad.set(index, grad.get(index) +  label * -1 * insProb);
 			}
 			
 			outKey.set(-1);
@@ -126,6 +125,7 @@ public class LRUpdateLoss extends Configured implements Tool {
 					if(line.length() > 0)
 						grad.add(Double.parseDouble(line));
 				}
+				fs.deleteOnExit(new Path(filenameGrad));
 				br.close();
 				fs.close();
 			} catch (IOException e) {
@@ -191,7 +191,7 @@ public class LRUpdateLoss extends Configured implements Tool {
         }
 	}
 	
-	public double run(double[] input, double[] grad) throws Exception {
+	public double run(ArrayList<Double> input, ArrayList<Double> grad) throws Exception {
 		
 		this.filenameTrainSet = "data_matrix.txt";
 		this.filenameWeight = "input.txt";
@@ -203,16 +203,16 @@ public class LRUpdateLoss extends Configured implements Tool {
 		FileSystem fs = FileSystem.get(conf);
 		
 		BufferedWriter bw1 = new BufferedWriter(new FileWriter(this.filenameWeight));
-		for(int i=0; i<input.length; i++) {
-			bw1.write(String.valueOf(input[i]));
+		for(int i=0; i<input.size(); i++) {
+			bw1.write(String.valueOf(input.get(i)));
 			bw1.newLine();
 		}
 		bw1.flush();
 		bw1.close();
 		
 		BufferedWriter bw2 = new BufferedWriter(new FileWriter(this.filenameGrad));
-		for(int i=0; i<grad.length; i++) {
-			bw2.write(String.valueOf(grad[i]));
+		for(int i=0; i<grad.size(); i++) {
+			bw2.write(String.valueOf(grad.get(i)));
 			bw2.newLine();
 		}
 		bw2.flush();
@@ -224,7 +224,7 @@ public class LRUpdateLoss extends Configured implements Tool {
 		if(retcd != 0) {
 			System.err.println("Hadoop job failed.");
 		}
-		//  Update grad using hadoop output and return loss
+		// Update grad using hadoop output and return loss
 		fs = FileSystem.get(conf);
 		BufferedReader br = new BufferedReader(new FileReader(this.filenameLossAndGrad));
 		String line;
@@ -238,10 +238,11 @@ public class LRUpdateLoss extends Configured implements Tool {
 				if(index == -1) {
 					loss = val;
 				} else {
-					grad[index] = val;
+					grad.set(index, val);
 				}
 			}
 		}
+		fs.deleteOnExit(new Path(this.filenameLossAndGrad));
 		br.close();
 		fs.close();
 		return loss;

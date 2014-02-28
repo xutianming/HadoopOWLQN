@@ -2,9 +2,9 @@ package lb.hadoop.model.logistic;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 
 import org.apache.hadoop.conf.Configuration;
@@ -38,16 +38,17 @@ public class LRUpdateLoss extends Configured implements Tool {
 			String filenameWeight = conf.get("filename.weight");
 			try {
 				FileSystem fs = FileSystem.get(conf);
-				BufferedReader br = new BufferedReader(new FileReader(filenameWeight));
+				BufferedReader reader = new BufferedReader(
+										new InputStreamReader(
+										fs.open(new Path(filenameWeight))));
 				String line;
-				while((line = br.readLine()) != null) {
+				while((line = reader.readLine()) != null) {
 					line = line.trim();
 					if(line.length() > 0)
 						weights.add(Double.parseDouble(line));
 				}
-				fs.deleteOnExit(new Path(filenameWeight));
-				br.close();
-				fs.close();
+				reader.close();
+				//fs.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -57,6 +58,8 @@ public class LRUpdateLoss extends Configured implements Tool {
 				throws IOException, InterruptedException {
 			
 			String line = value.toString().trim();
+			if(line.length() <=0)
+				return;
 			String[] parts = line.split("\t");
 			
 			int label = Integer.parseInt(parts[0].trim());
@@ -118,16 +121,17 @@ public class LRUpdateLoss extends Configured implements Tool {
 			String filenameGrad = conf.get("filename.grad");
 			try {
 				FileSystem fs = FileSystem.get(conf);
-				BufferedReader br = new BufferedReader(new FileReader(filenameGrad));
+				BufferedReader br = new BufferedReader(
+										new InputStreamReader(
+										fs.open(new Path(filenameGrad))));
 				String line;
 				while((line = br.readLine()) != null) {
 					line = line.trim();
 					if(line.length() > 0)
 						grad.add(Double.parseDouble(line));
 				}
-				fs.deleteOnExit(new Path(filenameGrad));
 				br.close();
-				fs.close();
+				//fs.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -173,9 +177,10 @@ public class LRUpdateLoss extends Configured implements Tool {
 		job.setOutputValueClass(DoubleWritable.class);
 		job.setInputFormatClass(TextInputFormat.class);
 		job.setOutputFormatClass(TextOutputFormat.class);
+		job.setNumReduceTasks(1);
 		
 		FileInputFormat.addInputPath(job, new Path(this.filenameTrainSet));
-		FileOutputFormat.setOutputPath(job, new Path(this.filenameWeight));
+		FileOutputFormat.setOutputPath(job, new Path(this.filenameLossAndGrad));
 		
 		conf = job.getConfiguration();
 		conf.set("filename.trainset", this.filenameTrainSet);
@@ -196,13 +201,17 @@ public class LRUpdateLoss extends Configured implements Tool {
 		this.filenameTrainSet = "data_matrix.txt";
 		this.filenameWeight = "input.txt";
 		this.filenameGrad = "grad.txt";
-		this.filenameLossAndGrad  = "result.txt";
+		this.filenameLossAndGrad  = "result";
 		
 		//  Write input and grad into file as input of hadoop
 		Configuration conf = new Configuration();
 		FileSystem fs = FileSystem.get(conf);
+		Path weightPath = new Path(this.filenameWeight);
+		if(fs.exists(weightPath))
+			fs.delete(weightPath, true);
 		
-		BufferedWriter bw1 = new BufferedWriter(new FileWriter(this.filenameWeight));
+		BufferedWriter bw1 = new BufferedWriter(new OutputStreamWriter(
+				fs.create(weightPath)));
 		for(int i=0; i<input.size(); i++) {
 			bw1.write(String.valueOf(input.get(i)));
 			bw1.newLine();
@@ -210,7 +219,11 @@ public class LRUpdateLoss extends Configured implements Tool {
 		bw1.flush();
 		bw1.close();
 		
-		BufferedWriter bw2 = new BufferedWriter(new FileWriter(this.filenameGrad));
+		Path gradPath = new Path(this.filenameGrad);
+		if(fs.exists(gradPath))
+			fs.delete(gradPath, true);
+		BufferedWriter bw2 = new BufferedWriter(new OutputStreamWriter(
+				fs.create(gradPath)));
 		for(int i=0; i<grad.size(); i++) {
 			bw2.write(String.valueOf(grad.get(i)));
 			bw2.newLine();
@@ -226,13 +239,14 @@ public class LRUpdateLoss extends Configured implements Tool {
 		}
 		// Update grad using hadoop output and return loss
 		fs = FileSystem.get(conf);
-		BufferedReader br = new BufferedReader(new FileReader(this.filenameLossAndGrad));
+		BufferedReader br = new BufferedReader(new InputStreamReader(
+				fs.open(new Path(this.filenameLossAndGrad+"/part-r-00000"))));
 		String line;
 		double loss = 0.0;
 		while((line = br.readLine()) != null) {
 			line = line.trim();
 			if(line.length() > 0) {
-				String[] pairs = line.split(" ");
+				String[] pairs = line.split("\t");
 				int index = Integer.parseInt(pairs[0].trim());
 				double val = Double.parseDouble(pairs[1].trim());
 				if(index == -1) {

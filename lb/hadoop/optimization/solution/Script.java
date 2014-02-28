@@ -12,8 +12,8 @@ public class Script {
 		double tor = 1.0e-4;
 		int memoryLimit = 10;
 		int dimension = 80;
-		ArrayList<Double> init = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
-		ArrayList<Double> res = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
+		ArrayList<Double> init = new ArrayList<Double>(Collections.nCopies(dimension, new Double(0)));
+		ArrayList<Double> res = new ArrayList<Double>(Collections.nCopies(dimension, new Double(0)));
 		OWLQN owlqn = new OWLQN(false, lr, dimension, memoryLimit, tor);
 		owlqn.minimize(init, res);
 		System.out.println("Print vector");

@@ -42,6 +42,10 @@ public class OWLQN implements OptimizationSolution {
 		this.newX = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
 		this.newGrad = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
 		this.steepestDescDir = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
+		this.sList = new LinkedList<ArrayList<Double>>();
+		this.yList = new LinkedList<ArrayList<Double>>();
+		this.roList = new LinkedList<Double>();
+		this.alphas = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
 		this.dir = new ArrayList<Double>(Collections.nCopies(dimension, 0.0));
 		this.tor = tor;
 	}
@@ -183,12 +187,12 @@ public class OWLQN implements OptimizationSolution {
         	updateDir();
             backTrackingLineSearch();
             double termCritVal = termCrit.getTermCritValue(state);
-            System.out.println("Iter:" + state.getIter());
-            System.out.println("Loss:" + state.getIterStateValue());
-            System.out.println("TermCrit:" + termCritVal);
             if(termCritVal < tor)
             	break;
             shift();
+            System.out.println("Iter:" + state.getIter());
+            System.out.println("Loss:" + state.getIterStateValue());
+            System.out.println("TermCrit:" + termCritVal);
         }
         res = newX;
 		

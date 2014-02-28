@@ -8,7 +8,7 @@ public class RelativeMeanImprovementCriterion implements TerminationCriterion{
 	
 	@SuppressWarnings("unused")
 	private int numItersToAvg;
-	private LinkedList<Double> prevVals;
+	private LinkedList<Double> prevVals = new LinkedList<Double>();
 	
 	public RelativeMeanImprovementCriterion() {
 		this.numItersToAvg = 5;

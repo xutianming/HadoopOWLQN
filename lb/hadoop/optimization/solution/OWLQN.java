@@ -176,11 +176,16 @@ public class OWLQN implements OptimizationSolution {
 	public void minimize(ArrayList<Double> init, ArrayList<Double> res) {
 		value = func.eval(init, grad);  // Loss
 		state.setIterStateValue(value); // Use loss as iteration state value
-        termCrit.getTermCritValue(state);
+        System.out.println("Iter:" + state.getIter());
+        System.out.println("Loss:" + state.getIterStateValue());
+		termCrit.getTermCritValue(state);
         while (true) {
         	updateDir();
             backTrackingLineSearch();
             double termCritVal = termCrit.getTermCritValue(state);
+            System.out.println("Iter:" + state.getIter());
+            System.out.println("Loss:" + state.getIterStateValue());
+            System.out.println("TermCrit:" + termCritVal);
             if(termCritVal < tor)
             	break;
             shift();

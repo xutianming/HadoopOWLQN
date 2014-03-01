@@ -21,7 +21,7 @@ public class OWLQN implements OptimizationSolution {
 	private LinkedList<ArrayList<Double>> sList, yList;
 	private LinkedList<Double> roList;
 	private ArrayList<Double> alphas;
-	private int iter, m;
+	private int m;
 	private TerminationCriterion termCrit;
 	private DifferentiableFunction func;
 	private OWLQNIterationState state;
@@ -120,7 +120,7 @@ public class OWLQN implements OptimizationSolution {
 
 		double alpha = 1.0;
 		double backoff = 0.5;
-		if (iter == 1) {
+		if (state.getIter() == 1) {
 			//alpha = 0.1;
 			//backoff = 0.5;
 			double normDir = Math.sqrt(dotProduct(dir, dir));
@@ -150,8 +150,8 @@ public class OWLQN implements OptimizationSolution {
         int listSize = (int)sList.size();
 
         if (listSize < m-1) {
-                nextS = new ArrayList<Double>(dim);
-                nextY = new ArrayList<Double>(dim);
+                nextS = new ArrayList<Double>(Collections.nCopies(dim,0.0));
+                nextY = new ArrayList<Double>(Collections.nCopies(dim,0.0));
         }
 
         if (nextS == null) {
@@ -180,9 +180,14 @@ public class OWLQN implements OptimizationSolution {
 	public void minimize(ArrayList<Double> init, ArrayList<Double> res) {
 		value = func.eval(init, grad);  // Loss
 		state.setIterStateValue(value); // Use loss as iteration state value
-        System.out.println("Iter:" + state.getIter());
-        System.out.println("Loss:" + state.getIterStateValue());
 		termCrit.getTermCritValue(state);
+		state.increaseIter();
+		System.out.println("Iter:" + state.getIter());
+	    System.out.println("Loss:" + state.getIterStateValue());
+	    System.out.println("Grad:(");
+	    for(int i=0;i<grad.size();i++)
+	        System.out.println(grad.get(i) + ",");
+	    System.out.println(")");
         while (true) {
         	updateDir();
             backTrackingLineSearch();
@@ -193,8 +198,14 @@ public class OWLQN implements OptimizationSolution {
             System.out.println("Iter:" + state.getIter());
             System.out.println("Loss:" + state.getIterStateValue());
             System.out.println("TermCrit:" + termCritVal);
+            System.out.println("Grad:(");
+            for(int i=0;i<grad.size();i++)
+            	System.out.println(grad.get(i) + ",");
+            System.out.println(")");
         }
-        res = newX;
+        for(int i=0; i< dim; i++) {
+        	res.set(i, newX.get(i));
+        }
 		
 	}
 
@@ -264,10 +275,6 @@ public class OWLQN implements OptimizationSolution {
 
 	public double GetValue() {
 		return this.value;
-	}
-	
-	public int GetIter() {
-		return this.iter;
 	}
 	
 	public int GetDim() {

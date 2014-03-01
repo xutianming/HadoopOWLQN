@@ -63,15 +63,16 @@ public class LRUpdateLoss extends Configured implements Tool {
 			String[] parts = line.split("\t");
 			
 			int label = Integer.parseInt(parts[0].trim());
+			// TODO To validate our program ,we do not permit invalid data here
 			if(label != -1 && label != 1)
-				return;
+				System.exit(1);
 			
 			// Calculate sum_(y_i * w_i * x_i) 
 			double score = 0.0;
 			for(int i=1;i<parts.length;i++) {
 				String[] pairs = parts[i].split(":");
 				if(pairs.length != 2)
-					return;
+					System.exit(1);
 				int index = Integer.parseInt(pairs[0].trim());
 				double val = Double.parseDouble(pairs[1].trim());
 				score += weights.get(index).doubleValue() * val;
@@ -96,10 +97,11 @@ public class LRUpdateLoss extends Configured implements Tool {
 			for(int i=1;i<parts.length;i++) {
 				String[] pairs = parts[i].split(":");
 				if(pairs.length != 2)
-					return;
+					System.exit(1);
 				int index = Integer.parseInt(pairs[0].trim());
+				double val = Double.parseDouble(pairs[1].trim());
 				outKey.set(index);
-				outVal.set(label * -1 * insProb);
+				outVal.set(label * -1 * (1-insProb) * val);
 				context.write(outKey, outVal);
 			}
 			
